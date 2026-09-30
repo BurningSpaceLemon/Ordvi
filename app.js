@@ -76,6 +76,7 @@
     renderHistory();
     renderVersion();
     registerServiceWorker();
+    setTimeout(warmSelectedPacks, 0);
   }
 
   function populateLanguageSelects() {
@@ -96,9 +97,20 @@
     localStorage.setItem(STORAGE.settings, JSON.stringify({ source: els.sourceLanguage.value, target: els.targetLanguage.value }));
   }
 
+  function warmSelectedPacks() {
+    const packs = globalThis.ORDVI_PACKS;
+    if (!packs) return;
+    const source = els.sourceLanguage.value === "auto" ? state.detected?.code : els.sourceLanguage.value;
+    const target = els.targetLanguage.value;
+    if (!source || source === "auto" || !target || source === target) return;
+    packs.ensurePair(source, target)
+      .then(() => renderSuggestions())
+      .catch(() => {});
+  }
+
   function bindEvents() {
-    els.sourceLanguage.addEventListener("change", () => { saveSettings(); detectAndRender(); renderSuggestions(); });
-    els.targetLanguage.addEventListener("change", saveSettings);
+    els.sourceLanguage.addEventListener("change", () => { saveSettings(); detectAndRender(); renderSuggestions(); warmSelectedPacks(); });
+    els.targetLanguage.addEventListener("change", () => { saveSettings(); warmSelectedPacks(); });
     els.swapButton.addEventListener("click", swapLanguages);
     els.sourceText.addEventListener("input", onInput);
     els.sourceText.addEventListener("keydown", (event) => {
@@ -116,6 +128,7 @@
         els.sourceLanguage.value = state.detected.code;
         saveSettings();
         detectAndRender();
+        warmSelectedPacks();
       }
     });
     els.copyPrimaryButton.addEventListener("click", () => {
@@ -182,6 +195,7 @@
     }
     els.detectedLanguage.textContent = `Erkannt: ${LANGUAGES[detection.code]?.label || detection.code}${detection.confidence ? ` · ${Math.round(detection.confidence * 100)}%` : ""}`;
     els.useDetectedButton.hidden = els.sourceLanguage.value !== "auto" || detection.code === "auto";
+    if (els.sourceLanguage.value === "auto") warmSelectedPacks();
   }
 
     function detectLanguageLocal(text) {
@@ -189,6 +203,8 @@
     const exact = byTerm.get(normalized) || [];
     const exactLanguages = [...new Set(exact.map(entry => entry.lang))];
     if (exactLanguages.length === 1) return { code: exactLanguages[0], confidence: 0.99, source: "lexicon" };
+    const packDetected = globalThis.ORDVI_PACKS?.detectSync?.(text);
+    if (packDetected) return { code: packDetected, confidence: 0.96, source: "offline pack" };
     if (/\p{Script=Han}/u.test(text)) return { code: "zh", confidence: 0.98, source: "script" };
     if (/\p{Script=Cyrillic}/u.test(text)) return { code: "ru", confidence: 0.96, source: "script" };
 
@@ -248,6 +264,9 @@
       }
     });
 
+    const packSuggestions = globalThis.ORDVI_PACKS?.suggestSync?.(raw.trim(), sourceHint, 7) || [];
+    suggestions.push(...packSuggestions);
+
     const unique = [...new Map(suggestions.map(item => [`${item.lang}:${normalize(item.text)}`, item])).values()].slice(0, 7);
     if (!unique.length) return hideSuggestions();
 
@@ -300,11 +319,12 @@
     const cacheKey = `${source}|${target}|${normalize(text)}`;
     const local = getLocalTranslation(text, source, target);
     const learned = isSingleWord(text) ? getLearnedWordTranslation(text, source, target) : null;
+    const packLocal = isSingleWord(text) ? globalThis.ORDVI_PACKS?.lookupSync?.(text, source, target) : null;
     const cached = getTranslationCache()[cacheKey];
 
     // Anything we already know renders synchronously.
-    if (local || learned || cached) {
-      const result = local || learned || { ...cached, provider: "lokaler Cache", cached: true };
+    if (local || learned || packLocal || cached) {
+      const result = local || learned || packLocal || { ...cached, provider: "lokaler Cache", cached: true };
       result.source = source;
       result.target = target;
       result.query = text;
@@ -314,8 +334,21 @@
       return;
     }
 
+    if (isSingleWord(text) && globalThis.ORDVI_PACKS) {
+      const packResult = await withTimeout(globalThis.ORDVI_PACKS.lookup(text, source, target), 1800).catch(() => null);
+      if (packResult) {
+        packResult.source = source;
+        packResult.target = target;
+        packResult.query = text;
+        state.latestResult = packResult;
+        renderResult(packResult);
+        saveHistory(packResult);
+        return;
+      }
+    }
+
     if (!navigator.onLine) {
-      renderStatus("Dieses Wort ist offline noch nicht in der lokalen Wissensbasis. Sobald es einmal online geladen wurde, steht es anschließend sofort zur Verfügung.");
+      renderStatus("Dieses Wort ist offline noch nicht in den installierten Sprachpaketen. Öffne Ordvi einmal online mit diesem Sprachpaar, damit das Paket lokal gespeichert wird.");
       return;
     }
 
@@ -708,6 +741,7 @@
     saveSettings();
     updateInputMeta();
     detectAndRender();
+    warmSelectedPacks();
   }
 
   function getTranslationCache() {
