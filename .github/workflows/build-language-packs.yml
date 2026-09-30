@@ -23,8 +23,11 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/ordvi-pack/panlex /tmp/ordvi-pack/freq
 
-          curl -L --fail --retry 3             https://raw.githubusercontent.com/acoli-repo/acoli-dicts/master/stable/panlex/biling-tsv/panlex-20191001-csv-tsv/en.zip             -o /tmp/ordvi-pack/panlex/en.zip
-          unzip -q /tmp/ordvi-pack/panlex/en.zip -d /tmp/ordvi-pack/panlex
+          panlex_base=https://raw.githubusercontent.com/acoli-repo/acoli-dicts/master/stable/panlex/biling-tsv/panlex-20191001-csv-tsv
+          for code in en fr it ru; do
+            curl -L --fail --retry 3 "$panlex_base/$code.zip" -o "/tmp/ordvi-pack/panlex/$code.zip"
+            unzip -q -o "/tmp/ordvi-pack/panlex/$code.zip" -d /tmp/ordvi-pack/panlex
+          done
 
           base=https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016
           curl -L --fail --retry 3 "$base/en/en_50k.txt" -o /tmp/ordvi-pack/freq/en_50k.txt
