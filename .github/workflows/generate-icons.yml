@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'icons/icon-512.png'
+      - '.github/workflows/generate-icons.yml'
 
 permissions:
   contents: write
@@ -23,13 +24,13 @@ jobs:
       - name: Generate PWA icon sizes
         shell: bash
         run: |
-          magick icons/icon-512.png -resize 192x192 icons/icon-192.png
-          magick icons/icon-512.png -resize 180x180 icons/apple-touch-icon.png
+          convert icons/icon-512.png -resize 192x192 icons/icon-192.png
+          convert icons/icon-512.png -resize 180x180 icons/apple-touch-icon.png
 
           # Maskable: shrink symbol into the central safe zone on a sampled dark-green background.
-          magick icons/icon-512.png -resize 420x420 /tmp/inner.png
-          magick -size 512x512 xc:'#063E34' /tmp/bg.png
-          magick /tmp/bg.png /tmp/inner.png -gravity center -composite icons/maskable-512.png
+          convert icons/icon-512.png -resize 420x420 /tmp/inner.png
+          convert -size 512x512 xc:'#063E34' /tmp/bg.png
+          composite -gravity center /tmp/inner.png /tmp/bg.png icons/maskable-512.png
 
       - name: Commit generated icon assets
         shell: bash
