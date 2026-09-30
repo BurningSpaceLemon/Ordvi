@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#10201d" />
+  <meta name="description" content="Ordvi – schlanke, mobile Übersetzungs-PWA mit Offline-Cache, Wortvarianten und Beispielen." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Ordvi" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>Ordvi</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Ordvi">
+        <img src="./icons/icon-192.png" alt="" class="brand-icon" />
+        <div>
+          <div class="brand-name">Ordvi</div>
+          <div class="brand-subtitle">words, clearly.</div>
+        </div>
+      </div>
+      <div id="networkBadge" class="network-badge" aria-live="polite">Online</div>
+    </header>
+
+    <main>
+      <section class="translator-card" aria-labelledby="translatorHeading">
+        <h1 id="translatorHeading" class="sr-only">Übersetzer</h1>
+
+        <div class="language-row">
+          <label class="select-wrap">
+            <span class="select-label">Von</span>
+            <select id="sourceLanguage" aria-label="Ausgangssprache"></select>
+          </label>
+          <button id="swapButton" class="icon-button swap-button" type="button" aria-label="Sprachen tauschen" title="Sprachen tauschen">⇄</button>
+          <label class="select-wrap">
+            <span class="select-label">Nach</span>
+            <select id="targetLanguage" aria-label="Zielsprache"></select>
+          </label>
+        </div>
+
+        <div class="detected-row">
+          <span id="detectedLanguage">Sprache automatisch erkennen</span>
+          <button id="useDetectedButton" class="text-button" type="button" hidden>übernehmen</button>
+        </div>
+
+        <div class="input-wrap">
+          <textarea id="sourceText" rows="5" maxlength="500" placeholder="Wort oder Satz eingeben …" autocomplete="off" autocapitalize="sentences" spellcheck="true"></textarea>
+          <button id="clearButton" class="clear-button" type="button" aria-label="Eingabe löschen" hidden>×</button>
+          <div id="suggestions" class="suggestions" role="listbox" hidden></div>
+        </div>
+
+        <div class="input-footer">
+          <span id="inputMeta" class="input-meta">0 / 500</span>
+          <button id="translateButton" class="primary-button" type="button">Übersetzen</button>
+        </div>
+      </section>
+
+      <section id="resultSection" class="results-section" aria-live="polite" hidden>
+        <div class="section-heading-row">
+          <div>
+            <p class="eyebrow">Übersetzung</p>
+            <h2 id="resultHeading">Ergebnisse</h2>
+          </div>
+          <button id="copyPrimaryButton" class="secondary-button" type="button" hidden>Alles kopieren</button>
+        </div>
+        <div id="resultContent"></div>
+      </section>
+
+      <section id="historySection" class="history-section" hidden>
+        <div class="section-heading-row">
+          <div>
+            <p class="eyebrow">Lokal gespeichert</p>
+            <h2>Zuletzt gesucht</h2>
+          </div>
+          <button id="clearHistoryButton" class="text-button danger" type="button">löschen</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <section class="privacy-note">
+        <div>
+          <strong>Schlank & lokal.</strong>
+          <span>Kein Konto, kein Tracking. Verlauf und Cache bleiben auf diesem Gerät.</span>
+        </div>
+        <button id="historyToggle" class="text-button" type="button">Verlauf</button>
+      </section>
+    </main>
+  </div>
+
+  <template id="resultCardTemplate">
+    <article class="result-card">
+      <div class="result-main-row">
+        <div>
+          <div class="result-label"></div>
+          <button class="result-word" type="button"></button>
+          <div class="result-note"></div>
+        </div>
+        <button class="copy-button" type="button" aria-label="Kopieren" title="Kopieren">⧉</button>
+      </div>
+      <div class="result-details" hidden></div>
+    </article>
+  </template>
+
+  <script src="./lexicon.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
