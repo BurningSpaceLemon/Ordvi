@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — 2026-09-30
+
+### Added
+- New Ordvi translation icon as the 512 px master asset.
+- Automatic GitHub Action to regenerate 192 px, Apple Touch and maskable PWA icons.
+- Expanded Common Core from 154 to 303 concepts across six languages (1,818 language entries).
+
+### Changed
+- Pressing Enter now translates immediately.
+- Shift+Enter remains available for multi-line input.
+
 ## 0.3.0 — 2026-09-30
 
 ### Added
