@@ -3,18 +3,20 @@
 
   const LANGUAGES = {
     auto: { label: "Auto", short: "AUTO" },
-    de: { label: "Deutsch", short: "DE" },
-    en: { label: "Englisch", short: "EN" },
-    fr: { label: "Französisch", short: "FR" },
-    it: { label: "Italienisch", short: "IT" },
-    ru: { label: "Russisch", short: "RU" },
-    zh: { label: "Chinesisch", short: "ZH" }
+    de: { label: "Deutsch", short: "DE", tatoeba: "deu" },
+    en: { label: "Englisch", short: "EN", tatoeba: "eng" },
+    fr: { label: "Französisch", short: "FR", tatoeba: "fra" },
+    it: { label: "Italienisch", short: "IT", tatoeba: "ita" },
+    ru: { label: "Russisch", short: "RU", tatoeba: "rus" },
+    zh: { label: "Chinesisch", short: "ZH", tatoeba: "cmn" }
   };
 
   const STORAGE = {
     settings: "ordvi.settings.v1",
     history: "ordvi.history.v1",
-    cache: "ordvi.cache.v1"
+    cache: "ordvi.cache.v1",
+    wordKb: "ordvi.wordkb.v1",
+    details: "ordvi.details.v1"
   };
 
   const STOPWORDS = {
@@ -152,7 +154,7 @@
     els.sourceText.focus();
   }
 
-  async function detectAndRender() {
+  function detectAndRender() {
     const text = els.sourceText.value.trim();
     if (!text) {
       els.detectedLanguage.textContent = "Sprache automatisch erkennen";
@@ -160,15 +162,10 @@
       return;
     }
 
-    let detection = detectLanguageLocal(text);
-    if (els.sourceLanguage.value === "auto" && text.length >= 12) {
-      const browserDetection = await detectWithBrowserAI(text);
-      if (browserDetection && browserDetection.confidence > (detection?.confidence || 0)) detection = browserDetection;
-    }
-
+    const detection = detectLanguageLocal(text);
     state.detected = detection;
     if (!detection) {
-      els.detectedLanguage.textContent = "Sprache noch nicht sicher erkannt";
+      els.detectedLanguage.textContent = "Sprache wird beim Übersetzen erkannt";
       els.useDetectedButton.hidden = true;
       return;
     }
@@ -176,7 +173,7 @@
     els.useDetectedButton.hidden = els.sourceLanguage.value !== "auto" || detection.code === "auto";
   }
 
-  function detectLanguageLocal(text) {
+    function detectLanguageLocal(text) {
     const normalized = normalize(text);
     const exact = byTerm.get(normalized);
     if (exact) return { code: exact.lang, confidence: 0.99, source: "lexicon" };
@@ -230,7 +227,16 @@
         }
       }
     }
-    const unique = [...new Map(suggestions.map(item => [`${item.lang}:${item.text}`, item])).values()].slice(0, 6);
+
+    const learned = getWordKb();
+    Object.values(learned).forEach(item => {
+      if (!item?.query || !item?.source) return;
+      if (normalize(item.query).startsWith(query) && (sourceHint === "auto" || item.source === sourceHint)) {
+        suggestions.push({ text: item.query, lang: item.source });
+      }
+    });
+
+    const unique = [...new Map(suggestions.map(item => [`${item.lang}:${normalize(item.text)}`, item])).values()].slice(0, 7);
     if (!unique.length) return hideSuggestions();
 
     els.suggestions.innerHTML = "";
@@ -262,51 +268,69 @@
     const text = els.sourceText.value.trim();
     if (!text) return els.sourceText.focus();
     hideSuggestions();
-    await detectAndRender();
+    detectAndRender();
 
-    const source = resolveSourceLanguage(text);
+    let source = resolveSourceLanguage(text);
     const target = els.targetLanguage.value;
+
+    if (!source && els.sourceLanguage.value === "auto") {
+      const quickDetection = await withTimeout(detectWithBrowserAI(text), 700).catch(() => null);
+      source = quickDetection?.code || null;
+      if (quickDetection) {
+        state.detected = quickDetection;
+        els.detectedLanguage.textContent = `Erkannt: ${LANGUAGES[quickDetection.code]?.label || quickDetection.code}`;
+      }
+    }
+
     if (!source) return renderStatus("Die Ausgangssprache konnte bei diesem kurzen Text nicht sicher erkannt werden. Wähle sie oben einmal manuell aus.");
     if (source === target) return renderStatus("Ausgangs- und Zielsprache sind identisch. Tausche die Sprachen oder wähle eine andere Zielsprache.");
+
+    const cacheKey = `${source}|${target}|${normalize(text)}`;
+    const local = getLocalTranslation(text, source, target);
+    const learned = isSingleWord(text) ? getLearnedWordTranslation(text, source, target) : null;
+    const cached = getTranslationCache()[cacheKey];
+
+    // Anything we already know renders synchronously.
+    if (local || learned || cached) {
+      const result = local || learned || { ...cached, provider: "lokaler Cache", cached: true };
+      result.source = source;
+      result.target = target;
+      result.query = text;
+      state.latestResult = result;
+      renderResult(result);
+      saveHistory(result);
+      return;
+    }
+
+    if (!navigator.onLine) {
+      renderStatus("Dieses Wort ist offline noch nicht in der lokalen Wissensbasis. Sobald es einmal online geladen wurde, steht es anschließend sofort zur Verfügung.");
+      return;
+    }
 
     els.translateButton.disabled = true;
     els.translateButton.textContent = "Übersetze …";
     try {
-      const cacheKey = `${source}|${target}|${normalize(text)}`;
-      const cached = getTranslationCache()[cacheKey];
-      const local = getLocalTranslation(text, source, target);
-
-      let result = null;
-      if (local) result = local;
-      else if (navigator.onLine) {
-        result = await translateWithBrowserAI(text, source, target);
-        if (!result) result = await translateWithMyMemory(text, source, target);
-      } else if (cached) result = { ...cached, provider: "cache", cached: true };
-
-      if (!result && cached) result = { ...cached, provider: "cache", cached: true };
-      if (!result) {
-        renderStatus("Diese Übersetzung ist offline noch nicht verfügbar. Bereits geladene Übersetzungen und lokale Wörterbucheinträge funktionieren weiterhin.");
-        return;
-      }
+      const result = await fastTranslate(text, source, target);
+      if (!result) throw new Error("No translation result");
 
       result.source = source;
       result.target = target;
       result.query = text;
-      if (isSingleWord(text) && target === "en") await enrichEnglishVariants(result);
       state.latestResult = result;
       renderResult(result);
       saveTranslationCache(cacheKey, result);
+      if (isSingleWord(text)) saveLearnedWord(result);
       saveHistory(result);
     } catch (error) {
       console.error(error);
-      renderStatus("Die Online-Übersetzung ist gerade nicht erreichbar. Prüfe die Verbindung oder versuche es erneut; lokale und gecachte Ergebnisse bleiben verfügbar.");
+      renderStatus("Die Online-Übersetzung reagiert gerade nicht schnell genug. Lokale und bereits gelernte Wörter bleiben sofort verfügbar.");
     } finally {
       els.translateButton.disabled = false;
       els.translateButton.textContent = "Übersetzen";
     }
   }
 
-  function resolveSourceLanguage(text) {
+    function resolveSourceLanguage(text) {
     if (els.sourceLanguage.value !== "auto") return els.sourceLanguage.value;
     return state.detected?.code || detectLanguageLocal(text)?.code || null;
   }
@@ -324,6 +348,56 @@
         examples: item.examples || []
       }))
     };
+  }
+
+  async function fastTranslate(text, source, target) {
+    const valid = promise => Promise.resolve(promise).then(value => {
+      if (!value) throw new Error("empty result");
+      return value;
+    });
+
+    try {
+      return await Promise.any([
+        withTimeout(valid(translateWithMyMemory(text, source, target)), 2600),
+        withTimeout(valid(translateWithBrowserAI(text, source, target)), 2200)
+      ]);
+    } catch (_) {
+      return await withTimeout(valid(translateWithMyMemory(text, source, target)), 4200).catch(() => null);
+    }
+  }
+
+  function getWordKb() {
+    return safeJsonParse(localStorage.getItem(STORAGE.wordKb), {});
+  }
+
+  function getLearnedWordTranslation(text, source, target) {
+    const key = `${source}|${target}|${normalize(text)}`;
+    const item = getWordKb()[key];
+    return item ? {
+      provider: "lokale Wissensbasis",
+      variants: item.variants || []
+    } : null;
+  }
+
+  function saveLearnedWord(result) {
+    if (!result?.query || !result?.source || !result?.target || !result?.variants?.length) return;
+    const kb = getWordKb();
+    const key = `${result.source}|${result.target}|${normalize(result.query)}`;
+    kb[key] = {
+      query: result.query,
+      source: result.source,
+      target: result.target,
+      variants: result.variants.slice(0, 6).map(v => ({
+        text: v.text,
+        label: v.label,
+        pos: v.pos || "",
+        note: v.note || "",
+        examples: v.examples || []
+      })),
+      savedAt: Date.now()
+    };
+    const entries = Object.entries(kb).sort((a,b) => (b[1].savedAt || 0) - (a[1].savedAt || 0)).slice(0, 750);
+    localStorage.setItem(STORAGE.wordKb, JSON.stringify(Object.fromEntries(entries)));
   }
 
   async function translateWithBrowserAI(text, source, target) {
@@ -397,24 +471,183 @@
       note.textContent = [variant.pos, variant.note].filter(Boolean).join(" · ");
       copy.addEventListener("click", () => copyText(variant.text, copy));
 
-      const hasDetails = Boolean((variant.examples && variant.examples.length) || (variant.dictionary && variant.dictionary.length));
-      if (hasDetails) {
-        word.setAttribute("aria-expanded", "false");
-        word.title = "Beispiele anzeigen";
-        fillDetails(details, variant);
-        word.addEventListener("click", () => {
-          details.hidden = !details.hidden;
-          word.setAttribute("aria-expanded", String(!details.hidden));
-        });
-      } else {
-        word.style.cursor = "default";
-      }
+      // Every result can be opened. Missing details are fetched only after the tap.
+      word.setAttribute("aria-expanded", "false");
+      word.title = "Verwendung und Beispiele anzeigen";
+      word.addEventListener("click", async () => {
+        const opening = details.hidden;
+        details.hidden = !opening;
+        word.setAttribute("aria-expanded", String(opening));
+        if (opening && !details.dataset.loaded) {
+          details.dataset.loaded = "loading";
+          renderDetailShell(details, variant);
+          await enrichVariantDetails(details, variant, result);
+        }
+      });
+
       els.resultContent.appendChild(card);
     });
     els.resultSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  function fillDetails(container, variant) {
+  function renderDetailShell(container, variant) {
+    container.innerHTML = "";
+
+    if (variant.pos || variant.note) {
+      const usage = document.createElement("div");
+      usage.className = "detail-block";
+      usage.innerHTML = `<p class="detail-title">Verwendung</p>${variant.pos ? `<div><span class="pos-chip">${escapeHtml(variant.pos)}</span></div>` : ""}${variant.note ? `<p class="detail-text">${escapeHtml(variant.note)}</p>` : ""}`;
+      container.appendChild(usage);
+    }
+
+    fillDetails(container, variant);
+
+    const loading = document.createElement("div");
+    loading.className = "detail-block detail-loading";
+    loading.innerHTML = `<p class="detail-title">Zusatzinfos</p><p class="detail-text">${navigator.onLine ? "Beispiele und Wortinformationen werden ergänzt …" : "Offline – lokale Informationen werden angezeigt."}</p>`;
+    container.appendChild(loading);
+  }
+
+  async function enrichVariantDetails(container, variant, result) {
+    const detailKey = `${result.target}|${result.source}|${normalize(variant.text)}`;
+    let details = getDetailsCache()[detailKey] || null;
+
+    if (!details && navigator.onLine) {
+      const jobs = [fetchTatoebaExamples(variant.text, result.target, result.source)];
+      if (result.target === "en" && isSingleWord(variant.text)) jobs.push(fetchEnglishDictionary(variant.text));
+      const settled = await Promise.allSettled(jobs);
+      details = {
+        examples: settled[0]?.status === "fulfilled" ? settled[0].value : [],
+        dictionary: settled[1]?.status === "fulfilled" ? settled[1].value : [],
+        savedAt: Date.now()
+      };
+      saveDetailsCache(detailKey, details);
+    }
+
+    container.querySelector(".detail-loading")?.remove();
+
+    const existingExamples = new Set((variant.examples || []).map(pair => normalize(Array.isArray(pair) ? pair[0] : pair?.source)));
+    if (details?.dictionary?.length) appendDictionaryDetails(container, details.dictionary);
+    if (details?.examples?.length) {
+      const freshExamples = details.examples.filter(pair => !existingExamples.has(normalize(pair?.[0])));
+      appendExamples(container, freshExamples, "Beispiele aus echten Sätzen");
+    }
+
+    const hasAny = Boolean(
+      variant.pos || variant.note ||
+      variant.examples?.length ||
+      variant.dictionary?.length ||
+      details?.dictionary?.length ||
+      details?.examples?.length
+    );
+    if (!hasAny) {
+      const empty = document.createElement("div");
+      empty.className = "detail-block";
+      empty.innerHTML = '<p class="detail-title">Beispiele</p><p class="detail-text">Für diese Variante wurden noch keine verlässlichen Zusatzinfos gefunden.</p>';
+      container.appendChild(empty);
+    }
+    container.dataset.loaded = "true";
+  }
+
+  async function fetchEnglishDictionary(word) {
+    try {
+      const response = await withTimeout(fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`), 1800);
+      if (!response.ok) return [];
+      const entries = await response.json();
+      return entries.flatMap(entry => (entry.meanings || []).flatMap(meaning =>
+        (meaning.definitions || []).slice(0, 2).map(def => ({
+          pos: meaning.partOfSpeech || "",
+          definition: def.definition || "",
+          example: def.example || ""
+        }))
+      )).filter(item => item.definition).slice(0, 5);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async function fetchTatoebaExamples(term, lang, translationLang) {
+    const sourceCode = LANGUAGES[lang]?.tatoeba;
+    const translationCode = LANGUAGES[translationLang]?.tatoeba;
+    if (!sourceCode || !translationCode) return [];
+
+    try {
+      const url = new URL("https://api.tatoeba.org/v1/sentences");
+      url.searchParams.set("lang", sourceCode);
+      url.searchParams.set("q", term);
+      url.searchParams.set("trans:lang", translationCode);
+      url.searchParams.set("trans:is_direct", "yes");
+      url.searchParams.set("trans:is_unapproved", "no");
+      url.searchParams.set("trans:is_orphan", "no");
+      url.searchParams.set("is_unapproved", "no");
+      url.searchParams.set("is_orphan", "no");
+      url.searchParams.set("showtrans", "matching");
+      url.searchParams.set("sort", "relevance");
+      url.searchParams.set("limit", "6");
+
+      const response = await withTimeout(fetch(url.toString(), { headers: { Accept: "application/json" } }), 2200);
+      if (!response.ok) return [];
+      const json = await response.json();
+      const rows = Array.isArray(json?.data) ? json.data : [];
+      const examples = [];
+
+      for (const row of rows) {
+        if (!row?.text) continue;
+        const translations = Array.isArray(row.translations) ? row.translations.flat(Infinity).filter(Boolean) : [];
+        const translated = translations.find(item => item?.lang === translationCode && item?.text);
+        if (!translated) continue;
+        examples.push([row.text, translated.text]);
+        if (examples.length >= 3) break;
+      }
+      return examples;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function appendDictionaryDetails(container, dictionary) {
+    const pos = [...new Set(dictionary.map(d => d.pos).filter(Boolean))];
+    if (pos.length) {
+      const block = document.createElement("div");
+      block.className = "detail-block";
+      block.innerHTML = `<p class="detail-title">Wortarten</p><div>${pos.map(p => `<span class="pos-chip">${escapeHtml(p)}</span>`).join("")}</div>`;
+      container.appendChild(block);
+    }
+    dictionary.slice(0, 3).forEach(item => {
+      const block = document.createElement("div");
+      block.className = "detail-block";
+      block.innerHTML = `<p class="detail-title">${escapeHtml(item.pos || "Bedeutung")}</p><p class="detail-text">${escapeHtml(item.definition || "")}</p>${item.example ? `<div class="example-pair"><p class="example-source">${escapeHtml(item.example)}</p></div>` : ""}`;
+      container.appendChild(block);
+    });
+  }
+
+  function appendExamples(container, examples, title) {
+    if (!examples?.length) return;
+    const block = document.createElement("div");
+    block.className = "detail-block";
+    block.innerHTML = `<p class="detail-title">${escapeHtml(title)}</p>`;
+    examples.slice(0, 4).forEach(([source, target]) => {
+      if (!source) return;
+      const pair = document.createElement("div");
+      pair.className = "example-pair";
+      pair.innerHTML = `<p class="example-source">${escapeHtml(source)}</p>${target ? `<p class="example-target">${escapeHtml(target)}</p>` : ""}`;
+      block.appendChild(pair);
+    });
+    container.appendChild(block);
+  }
+
+  function getDetailsCache() {
+    return safeJsonParse(localStorage.getItem(STORAGE.details), {});
+  }
+
+  function saveDetailsCache(key, details) {
+    const cache = getDetailsCache();
+    cache[key] = details;
+    const entries = Object.entries(cache).sort((a,b) => (b[1].savedAt || 0) - (a[1].savedAt || 0)).slice(0, 400);
+    localStorage.setItem(STORAGE.details, JSON.stringify(Object.fromEntries(entries)));
+  }
+
+    function fillDetails(container, variant) {
     if (variant.dictionary?.length) {
       const pos = [...new Set(variant.dictionary.map(d => d.pos).filter(Boolean))];
       if (pos.length) {
@@ -556,6 +789,16 @@
 
   function normalize(value) {
     return String(value || "").trim().toLocaleLowerCase().normalize("NFKC");
+  }
+
+  function withTimeout(promise, ms) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timeout")), ms);
+      Promise.resolve(promise).then(
+        value => { clearTimeout(timer); resolve(value); },
+        error => { clearTimeout(timer); reject(error); }
+      );
+    });
   }
 
   function cleanTranslation(value) {
