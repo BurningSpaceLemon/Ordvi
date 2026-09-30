@@ -182,8 +182,9 @@
 
     function detectLanguageLocal(text) {
     const normalized = normalize(text);
-    const exact = byTerm.get(normalized);
-    if (exact) return { code: exact.lang, confidence: 0.99, source: "lexicon" };
+    const exact = byTerm.get(normalized) || [];
+    const exactLanguages = [...new Set(exact.map(entry => entry.lang))];
+    if (exactLanguages.length === 1) return { code: exactLanguages[0], confidence: 0.99, source: "lexicon" };
     if (/\p{Script=Han}/u.test(text)) return { code: "zh", confidence: 0.98, source: "script" };
     if (/\p{Script=Cyrillic}/u.test(text)) return { code: "ru", confidence: 0.96, source: "script" };
 
@@ -343,8 +344,9 @@
   }
 
   function getLocalTranslation(text, source, target) {
-    const entry = byTerm.get(normalize(text));
-    if (!entry || entry.lang !== source || !entry.translations?.[target]) return null;
+    const candidates = byTerm.get(normalize(text)) || [];
+    const entry = candidates.find(item => item.lang === source && item.translations?.[target]);
+    if (!entry) return null;
     return {
       provider: "offline lexicon",
       variants: entry.translations[target].map((item, index) => ({
@@ -783,9 +785,16 @@
 
   function buildLexiconIndex(entries) {
     const map = new Map();
+    const add = (term, entry) => {
+      const key = normalize(term);
+      if (!key) return;
+      const bucket = map.get(key) || [];
+      if (!bucket.includes(entry)) bucket.push(entry);
+      map.set(key, bucket);
+    };
     entries.forEach(entry => {
-      map.set(normalize(entry.key), entry);
-      (entry.forms || []).forEach(form => map.set(normalize(form), entry));
+      add(entry.key, entry);
+      (entry.forms || []).forEach(form => add(form, entry));
     });
     return map;
   }
