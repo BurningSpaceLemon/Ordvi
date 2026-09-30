@@ -24,7 +24,10 @@
           <div class="brand-subtitle">words, clearly.</div>
         </div>
       </div>
-      <div id="networkBadge" class="network-badge" aria-live="polite">Online</div>
+      <div class="status-actions">
+        <button id="updateButton" class="update-button" type="button" hidden>Update verfügbar</button>
+        <div id="networkBadge" class="network-badge" aria-live="polite">Online</div>
+      </div>
     </header>
 
     <main>
@@ -85,7 +88,7 @@
       <section class="privacy-note">
         <div>
           <strong>Schlank & lokal.</strong>
-          <span>Kein Konto, kein Tracking. Verlauf und Cache bleiben auf diesem Gerät.</span>
+          <span>Kein Konto, kein Tracking. Verlauf und Cache bleiben auf diesem Gerät. <span id="versionLabel" class="version-label"></span></span>
         </div>
         <button id="historyToggle" class="text-button" type="button">Verlauf</button>
       </section>
@@ -106,6 +109,8 @@
     </article>
   </template>
 
+  <script src="./version.js"></script>
+  <script src="./core-kb.js"></script>
   <script src="./lexicon.js"></script>
   <script src="./app.js"></script>
 </body>
