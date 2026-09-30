@@ -59,15 +59,22 @@ def build_pair(target: str, root: Path, out_dir: Path):
     info = LANGS[target]
     tsv = None
     panlex_lang = None
+    reverse_file = False
     for candidate in info["panlex"]:
-        candidate_path = root / "panlex" / "en" / f"en-{candidate}.tsv"
-        if candidate_path.exists():
-            tsv = candidate_path
+        forward = root / "panlex" / "en" / f"en-{candidate}.tsv"
+        reverse = root / "panlex" / candidate / f"{candidate}-en.tsv"
+        if forward.exists():
+            tsv = forward
             panlex_lang = candidate
+            reverse_file = False
+            break
+        if reverse.exists():
+            tsv = reverse
+            panlex_lang = candidate
+            reverse_file = True
             break
     if tsv is None:
-        available = sorted(p.name for p in (root / "panlex" / "en").glob("en-*.tsv"))
-        raise FileNotFoundError(f"No PanLex file for {target}; tried {info['panlex']}. Sample available: {available[:30]}")
+        raise FileNotFoundError(f"No PanLex pair file for {target}; tried codes {info['panlex']}")
     en_freq = load_freq(root / "freq" / "en_50k.txt")
     tgt_freq = load_freq(root / "freq" / f"{info['freq']}_50k.txt")
 
@@ -79,16 +86,28 @@ def build_pair(target: str, root: Path, out_dir: Path):
         for row in reader:
             if not row:
                 continue
-            source = decode_literal(row[0], "en")
-            if not source:
-                continue
-            target_value = None
-            for field in reversed(row):
-                target_value = decode_literal(field, panlex_lang)
-                if target_value:
-                    break
-            if not target_value:
-                continue
+            if reverse_file:
+                target_value = decode_literal(row[0], panlex_lang)
+                if not target_value:
+                    continue
+                source = None
+                for field in reversed(row):
+                    source = decode_literal(field, "en")
+                    if source:
+                        break
+                if not source:
+                    continue
+            else:
+                source = decode_literal(row[0], "en")
+                if not source:
+                    continue
+                target_value = None
+                for field in reversed(row):
+                    target_value = decode_literal(field, panlex_lang)
+                    if target_value:
+                        break
+                if not target_value:
+                    continue
 
             sk = norm(source)
             tk = norm(target_value)
