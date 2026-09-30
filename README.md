@@ -2,6 +2,8 @@
 
 A small mobile-first translation PWA focused on fast word lookup, translation variants and examples without accounts or tracking.
 
+https://burningspacelemon.github.io/Ordvi/
+
 ## Features
 
 - Languages: German, English, French, Italian, Russian and Simplified Chinese
