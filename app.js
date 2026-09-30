@@ -26,7 +26,9 @@
     it: ["il","lo","la","gli","le","e","è","io","noi","con","per","non","un","una","di","nel","questo"]
   };
 
-  const lexicon = Array.isArray(window.ORDVI_LEXICON) ? window.ORDVI_LEXICON : [];
+  const coreLexicon = Array.isArray(window.ORDVI_CORE_KB) ? window.ORDVI_CORE_KB : [];
+  const customLexicon = Array.isArray(window.ORDVI_LEXICON) ? window.ORDVI_LEXICON : [];
+  const lexicon = [...coreLexicon, ...customLexicon];
   const byTerm = buildLexiconIndex(lexicon);
 
   const els = {
@@ -41,6 +43,8 @@
     detectedLanguage: document.getElementById("detectedLanguage"),
     useDetectedButton: document.getElementById("useDetectedButton"),
     networkBadge: document.getElementById("networkBadge"),
+    updateButton: document.getElementById("updateButton"),
+    versionLabel: document.getElementById("versionLabel"),
     resultSection: document.getElementById("resultSection"),
     resultHeading: document.getElementById("resultHeading"),
     resultContent: document.getElementById("resultContent"),
@@ -56,7 +60,9 @@
     detected: null,
     latestResult: null,
     historyOpen: false,
-    debounce: null
+    debounce: null,
+    waitingWorker: null,
+    reloadingForUpdate: false
   };
 
   init();
@@ -68,6 +74,7 @@
     updateNetworkState();
     updateInputMeta();
     renderHistory();
+    renderVersion();
     registerServiceWorker();
   }
 
@@ -816,7 +823,69 @@
     return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char]));
   }
 
+  function renderVersion() {
+    if (!els.versionLabel) return;
+    const version = globalThis.ORDVI_VERSION || "dev";
+    const build = globalThis.ORDVI_BUILD || "";
+    const kbCount = Number(globalThis.ORDVI_CORE_CONCEPT_COUNT || 0);
+    els.versionLabel.textContent = `v${version}${build ? ` · ${build}` : ""}${kbCount ? ` · Core ${kbCount}` : ""}`;
+  }
+
+  function showUpdateAvailable(worker) {
+    if (!worker || !els.updateButton) return;
+    state.waitingWorker = worker;
+    els.updateButton.hidden = false;
+    els.updateButton.disabled = false;
+    els.updateButton.textContent = "Update verfügbar";
+  }
+
   function registerServiceWorker() {
-    if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+    if (!("serviceWorker" in navigator)) return;
+
+    window.addEventListener("load", async () => {
+      try {
+        const version = globalThis.ORDVI_VERSION || "dev";
+        const build = globalThis.ORDVI_BUILD || "dev";
+        const registration = await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(version)}&b=${encodeURIComponent(build)}`);
+
+        if (registration.waiting) showUpdateAvailable(registration.waiting);
+
+        registration.addEventListener("updatefound", () => {
+          const worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateAvailable(worker);
+            }
+          });
+        });
+
+        els.updateButton?.addEventListener("click", async () => {
+          els.updateButton.disabled = true;
+          els.updateButton.textContent = "Aktualisiere …";
+          if (state.waitingWorker) {
+            state.waitingWorker.postMessage({ type: "SKIP_WAITING" });
+          } else {
+            await registration.update().catch(() => {});
+            if (!registration.waiting) {
+              els.updateButton.disabled = false;
+              els.updateButton.textContent = "Neu prüfen";
+            }
+          }
+        });
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (state.reloadingForUpdate) return;
+          state.reloadingForUpdate = true;
+          window.location.reload();
+        });
+
+        // Check on resume and periodically, but never block normal translation.
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") registration.update().catch(() => {});
+        });
+        setInterval(() => registration.update().catch(() => {}), 60 * 60 * 1000);
+      } catch (_) {}
+    });
   }
 })();
