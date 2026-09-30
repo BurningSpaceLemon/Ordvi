@@ -9,6 +9,7 @@ const CORE = [
   "./index.html",
   "./version.js",
   "./core-kb.js",
+  "./packs.js",
   "./styles.css",
   "./app.js",
   "./lexicon.js",
