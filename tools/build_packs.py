@@ -29,7 +29,7 @@ def decode_literal(field: str, lang: str):
     if not m or m.group(2) != lang:
         return None
     value = m.group(1)
-    return value.replace(r'\"', '"').replace(r"\\", "\")
+    return value.replace('\\\"', '"')
 
 def load_freq(path: Path):
     ranks = {}
