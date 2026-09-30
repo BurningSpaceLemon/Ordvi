@@ -8,11 +8,11 @@ from collections import defaultdict
 from pathlib import Path
 
 LANGS = {
-    "de": {"panlex": "de", "freq": "de"},
-    "fr": {"panlex": "fr", "freq": "fr"},
-    "it": {"panlex": "it", "freq": "it"},
-    "ru": {"panlex": "ru", "freq": "ru"},
-    "zh": {"panlex": "cmn", "freq": "zh"},
+    "de": {"panlex": ["de", "deu"], "freq": "de"},
+    "fr": {"panlex": ["fr", "fra"], "freq": "fr"},
+    "it": {"panlex": ["it", "ita"], "freq": "it"},
+    "ru": {"panlex": ["ru", "rus"], "freq": "ru"},
+    "zh": {"panlex": ["cmn", "zh", "zho"], "freq": "zh"},
 }
 TOP_FREQ = 20000
 MAX_PAIRS = 18000
@@ -57,8 +57,17 @@ def pair_score(en_key, tgt_key, en_rank, tgt_rank):
 
 def build_pair(target: str, root: Path, out_dir: Path):
     info = LANGS[target]
-    panlex_lang = info["panlex"]
-    tsv = root / "panlex" / "en" / f"en-{panlex_lang}.tsv"
+    tsv = None
+    panlex_lang = None
+    for candidate in info["panlex"]:
+        candidate_path = root / "panlex" / "en" / f"en-{candidate}.tsv"
+        if candidate_path.exists():
+            tsv = candidate_path
+            panlex_lang = candidate
+            break
+    if tsv is None:
+        available = sorted(p.name for p in (root / "panlex" / "en").glob("en-*.tsv"))
+        raise FileNotFoundError(f"No PanLex file for {target}; tried {info['panlex']}. Sample available: {available[:30]}")
     en_freq = load_freq(root / "freq" / "en_50k.txt")
     tgt_freq = load_freq(root / "freq" / f"{info['freq']}_50k.txt")
 
