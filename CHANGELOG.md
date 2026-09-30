@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-09-30
+
+### Added
+- Five on-demand PanLex offline packs for EN↔DE/FR/IT/RU/ZH.
+- 90,000 compact translation pairs across roughly 49,800 English source keys.
+- Automatic reverse indexes, so every hub pack works in both directions.
+- Offline pivot translation between two non-English languages through English.
+- Prefix autocomplete from loaded language packs.
+- Offline language detection from loaded pack vocabulary.
+- Automatic pack builder using PanLex CC0 data and open FrequencyWords rankings.
+
+### Changed
+- Packs are fetched only for the selected/detected language pair and cached separately from the app shell.
+- Existing Common Core and learned local vocabulary stay higher-priority than broad PanLex pack results.
+
 ## 0.4.0 — 2026-09-30
 
 ### Added
