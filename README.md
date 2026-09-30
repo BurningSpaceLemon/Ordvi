@@ -8,10 +8,11 @@ https://burningspacelemon.github.io/Ordvi/
 
 - Languages: German, English, French, Italian, Russian and Simplified Chinese
 - Automatic language detection with manual override
-- Prefix autocomplete from a local offline lexicon
+- Prefix autocomplete from the bundled + learned offline lexicon
 - Rich word results with multiple translations and parts of speech
 - Click/tap results for definitions and usage examples
 - Sentence translation with alternative matches when available
+- Enter translates immediately; Shift+Enter inserts a new line
 - One-tap copy
 - Local history and translation cache
 - PWA install support and offline app shell
@@ -19,7 +20,7 @@ https://burningspacelemon.github.io/Ordvi/
 
 ## Translation strategy
 
-1. Bundled Ordvi Common Core: 154 curated concepts across all 6 languages (924 language entries) for instant first-use lookup.
+1. Bundled Ordvi Common Core: 303 curated concepts across all 6 languages (1,818 language entries) for instant first-use lookup.
 2. Custom lexicon for nuanced translations and examples.
 3. Learned local knowledge base: online single-word results are stored on-device and become instant/offline afterwards.
 4. Translation cache for previously translated words and sentences.
@@ -52,7 +53,7 @@ For every release that changes cached files, bump at least `ORDVI_BUILD`. Bump `
 
 ## Deploy
 
-The project is static and can be deployed directly to GitHub Pages, Cloudflare Pages, Netlify or any static host. No build step is required.
+The project is static and can be deployed directly to GitHub Pages, Cloudflare Pages, Netlify or any static host. No app build step is required. The included GitHub Action regenerates the smaller PWA icon assets whenever `icons/icon-512.png` changes.
 
 ## License
 
