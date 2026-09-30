@@ -1,0 +1,28 @@
+name: Expand Ordvi source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ordvi-pwa.zip
+
+permissions:
+  contents: write
+
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Expand PWA source
+        shell: bash
+        run: |
+          unzip -o ordvi-pwa.zip
+          rm ordvi-pwa.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Ordvi PWA source" || exit 0
+          git push
