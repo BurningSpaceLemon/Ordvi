@@ -64,6 +64,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .brand-icon { width: 40px; height: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(20, 55, 47, .16); }
 .brand-name { font-size: 1.18rem; line-height: 1.1; font-weight: 760; letter-spacing: -.03em; }
 .brand-subtitle { margin-top: 2px; font-size: .74rem; color: var(--muted); letter-spacing: .04em; }
+.status-actions { display: flex; align-items: center; gap: 8px; }
 .network-badge {
   padding: 7px 10px;
   border-radius: 999px;
@@ -73,6 +74,19 @@ button { -webkit-tap-highlight-color: transparent; }
   font-weight: 700;
 }
 .network-badge.offline { background: var(--surface-soft); color: var(--muted); }
+.update-button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
+  font-size: .74rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+.update-button:disabled { opacity: .65; cursor: default; }
+.version-label { white-space: nowrap; opacity: .82; }
 
 main { display: grid; gap: 18px; }
 .translator-card, .results-section, .history-section, .privacy-note {
