@@ -1,0 +1,59 @@
+name: Build Ordvi language packs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/build_packs.py'
+      - '.github/workflows/build-language-packs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download open lexical sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ordvi-pack/panlex /tmp/ordvi-pack/freq
+
+          curl -L --fail --retry 3             https://raw.githubusercontent.com/acoli-repo/acoli-dicts/master/stable/panlex/biling-tsv/panlex-20191001-csv-tsv/en.zip             -o /tmp/ordvi-pack/panlex/en.zip
+          unzip -q /tmp/ordvi-pack/panlex/en.zip -d /tmp/ordvi-pack/panlex
+
+          base=https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016
+          curl -L --fail --retry 3 "$base/en/en_50k.txt" -o /tmp/ordvi-pack/freq/en_50k.txt
+          curl -L --fail --retry 3 "$base/de/de_50k.txt" -o /tmp/ordvi-pack/freq/de_50k.txt
+          curl -L --fail --retry 3 "$base/fr/fr_50k.txt" -o /tmp/ordvi-pack/freq/fr_50k.txt
+          curl -L --fail --retry 3 "$base/it/it_50k.txt" -o /tmp/ordvi-pack/freq/it_50k.txt
+          curl -L --fail --retry 3 "$base/ru/ru_50k.txt" -o /tmp/ordvi-pack/freq/ru_50k.txt
+          curl -L --fail --retry 3 "$base/zh/zh_50k.txt" -o /tmp/ordvi-pack/freq/zh_50k.txt
+
+      - name: Build compact offline packs
+        run: |
+          python3 tools/build_packs.py /tmp/ordvi-pack packs
+          ls -lh packs
+          python3 - <<'PY'
+          import json, pathlib
+          total = 0
+          for path in sorted(pathlib.Path("packs").glob("*.json")):
+              data = json.loads(path.read_text(encoding="utf-8"))
+              total += data["stats"]["translations"]
+              print(path.name, data["stats"])
+          print("total translations:", total)
+          PY
+
+      - name: Commit language packs
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packs/*.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Rebuild Ordvi offline language packs"
+          git push
