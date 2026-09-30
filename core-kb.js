@@ -169,7 +169,7 @@
     ["noun","donnerstag","thursday","jeudi","giovedì","четверг","星期四"],
     ["noun","freitag","friday","vendredi","venerdì","пятница","星期五"],
     ["noun","samstag","saturday","samedi","sabato","суббота","星期六"],
-    ["noun","sonntag","sunday","dimanche","domenica","воскресенье","星期日"]
+    ["noun","sonntag","sunday","dimanche","domenica","воскресенье","星期日"],
 
     // Travel & navigation
     ["noun","ticket","ticket","billet","biglietto","билет","票"],
