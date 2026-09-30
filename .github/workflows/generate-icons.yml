@@ -1,0 +1,42 @@
+name: Generate Ordvi icons
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'icons/icon-512.png'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+
+      - name: Generate PWA icon sizes
+        shell: bash
+        run: |
+          magick icons/icon-512.png -resize 192x192 icons/icon-192.png
+          magick icons/icon-512.png -resize 180x180 icons/apple-touch-icon.png
+
+          # Maskable: shrink symbol into the central safe zone on a sampled dark-green background.
+          magick icons/icon-512.png -resize 420x420 /tmp/inner.png
+          magick -size 512x512 xc:'#063E34' /tmp/bg.png
+          magick /tmp/bg.png /tmp/inner.png -gravity center -composite icons/maskable-512.png
+
+      - name: Commit generated icon assets
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add icons/icon-192.png icons/apple-touch-icon.png icons/maskable-512.png
+          git diff --cached --quiet && exit 0
+          git commit -m "Regenerate Ordvi icon assets"
+          git push
