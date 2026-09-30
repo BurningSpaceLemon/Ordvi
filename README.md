@@ -21,11 +21,13 @@ https://burningspacelemon.github.io/Ordvi/
 ## Translation strategy
 
 1. Bundled Ordvi Common Core: 303 curated concepts across all 6 languages (1,818 language entries) for instant first-use lookup.
-2. Custom lexicon for nuanced translations and examples.
-3. Learned local knowledge base: online single-word results are stored on-device and become instant/offline afterwards.
-4. Translation cache for previously translated words and sentences.
-5. Chrome Translator API and MyMemory race within short time budgets for unknown online content.
-6. Usage details load only after tapping a result; Tatoeba examples and English dictionary definitions are cached locally.
+2. Optional PanLex offline packs: EN↔DE/FR/IT/RU/ZH with 90,000 compact translation pairs in ~1.6 MB total. Packs load automatically only when needed and remain cached for offline use.
+3. Non-English pairs can translate offline through English as a pivot when both relevant packs are installed.
+4. Custom lexicon for nuanced translations and examples.
+5. Learned local knowledge base: online single-word results are stored on-device and become instant/offline afterwards.
+6. Translation cache for previously translated words and sentences.
+7. Chrome Translator API and MyMemory race within short time budgets for unknown online content.
+8. Usage details load only after tapping a result; Tatoeba examples and English dictionary definitions are cached locally.
 
 Public free APIs can rate-limit or change availability. For production/high traffic, replace the fallback in `app.js` with a self-hosted LibreTranslate/Argos endpoint or another provider.
 
@@ -45,7 +47,7 @@ Release metadata lives in `version.js`.
 
 - `ORDVI_VERSION`: semantic app version, e.g. `0.3.0`.
 - `ORDVI_BUILD`: unique build identifier for every deployed asset change.
-- `ORDVI_KB_VERSION`: version of the bundled knowledge pack.
+- `ORDVI_KB_VERSION`: version of the bundled core and optional offline pack cache.
 
 The service worker uses version + build as its cache key. New releases install into a fresh cache and show an **Update verfügbar** button in the app. The new worker becomes active only after the user accepts the update, then Ordvi reloads once with the new assets. Old Ordvi shell caches are deleted automatically.
 
