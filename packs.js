@@ -231,6 +231,17 @@
     return results;
   }
 
+  function detectSync(text) {
+    const key = normalize(text);
+    if (!key) return null;
+    const matches = new Set();
+    for (const [lang, pack] of memory) {
+      if (pack.reverse.has(key)) matches.add(lang);
+      if (pack.forward.has(key)) matches.add("en");
+    }
+    return matches.size === 1 ? [...matches][0] : null;
+  }
+
   function loadedLanguages() {
     return [...memory.keys()];
   }
@@ -249,6 +260,7 @@
     lookup,
     lookupSync,
     suggestSync,
+    detectSync,
     loadedLanguages,
     stats,
     supported: [...SUPPORTED]
