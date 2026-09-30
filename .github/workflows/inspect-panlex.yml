@@ -1,0 +1,30 @@
+name: Inspect PanLex pack layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-panlex.yml'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download English PanLex bundle
+        run: |
+          curl -L --fail --retry 3             https://raw.githubusercontent.com/acoli-repo/acoli-dicts/master/stable/panlex/biling-tsv/panlex-20191001-csv-tsv/en.zip             -o /tmp/en.zip
+          unzip -l /tmp/en.zip | sed -n '1,220p'
+          echo "---- candidate pair files ----"
+          unzip -l /tmp/en.zip | grep -Ei '(de|fr|it|ru|cmn|zh)' | head -120 || true
+
+      - name: Show first lines from likely pairs
+        shell: bash
+        run: |
+          mkdir -p /tmp/panlex
+          unzip -q /tmp/en.zip -d /tmp/panlex
+          find /tmp/panlex -type f | sort | head -200
+          echo "---- samples ----"
+          while IFS= read -r f; do
+            echo "### $f"
+            head -5 "$f" || true
+          done < <(find /tmp/panlex -type f | grep -Ei '(de|fr|it|ru|cmn|zh)' | head -20)
