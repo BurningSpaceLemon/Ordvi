@@ -1,4 +1,4 @@
-const CACHE = "ordvi-shell-v1";
+const CACHE = "ordvi-shell-v2";
 const CORE = [
   "./",
   "./index.html",
