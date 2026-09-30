@@ -102,7 +102,11 @@
     els.swapButton.addEventListener("click", swapLanguages);
     els.sourceText.addEventListener("input", onInput);
     els.sourceText.addEventListener("keydown", (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") translateCurrent();
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        translateCurrent();
+        return;
+      }
       if (event.key === "Escape") hideSuggestions();
     });
     els.clearButton.addEventListener("click", clearInput);
