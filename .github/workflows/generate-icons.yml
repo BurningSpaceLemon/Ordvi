@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'icons/icon-512.png'
+      - 'icons/icon-source.svg'
       - '.github/workflows/generate-icons.yml'
 
 permissions:
@@ -19,18 +19,15 @@ jobs:
       - name: Install image tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick
+          sudo apt-get install -y -qq librsvg2-bin
 
       - name: Generate PWA icon sizes
         shell: bash
         run: |
-          convert icons/icon-512.png -resize 192x192 icons/icon-192.png
-          convert icons/icon-512.png -resize 180x180 icons/apple-touch-icon.png
-
-          # Maskable: shrink symbol into the central safe zone on a sampled dark-green background.
-          convert icons/icon-512.png -resize 420x420 /tmp/inner.png
-          convert -size 512x512 xc:'#063E34' /tmp/bg.png
-          composite -gravity center /tmp/inner.png /tmp/bg.png icons/maskable-512.png
+          rsvg-convert -w 512 -h 512 icons/icon-source.svg -o icons/icon-512.png
+          rsvg-convert -w 192 -h 192 icons/icon-source.svg -o icons/icon-192.png
+          rsvg-convert -w 180 -h 180 icons/icon-source.svg -o icons/apple-touch-icon.png
+          rsvg-convert -w 512 -h 512 icons/icon-source.svg -o icons/maskable-512.png
 
       - name: Commit generated icon assets
         shell: bash
